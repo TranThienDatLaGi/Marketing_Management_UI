@@ -59,11 +59,11 @@ export function MarketingContracts() {
     customer_rate: 0,
     supplier_rate: 0,
     note: '',
+    customer_actually_paid:0,
   });
   const [calculateMoney, setCalculateMoney] = useState({
     customer_paid: 0,
     supplier_paid: 0,
-    customer_actually_paid: 0,
   });
   const [selectedBudget, setSelectedBudget] = useState<BudgetContract | null>(null);
   useEffect(() => {
@@ -205,18 +205,6 @@ export function MarketingContracts() {
     if (!access_token) {
       toast.info('Phiên đăng nhập hết hạn vui lòng đăng nhập lại');
     }
-    const payload = {
-      date: contractForm.date,
-      customer_id: contractForm.customer_id,
-      budget_id: contractForm.budget_id,
-      product: contractForm.product,
-      product_type: contractForm.product_type,
-      total_cost: contractForm.total_cost,
-      supplier_rate: contractForm.supplier_rate,
-      customer_rate: contractForm.customer_rate,
-      note: contractForm.note,
-      customer_paid: calculateMoney.customer_actually_paid,
-    }
     if (editingContract) {
       try {
         const response = await fetch(`${CONTRACT}/${editingContract.id}`, {
@@ -226,7 +214,7 @@ export function MarketingContracts() {
             "Accept": "application/json",
             "Authorization": `Bearer ${access_token}`
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(contractForm),
         });
         const data = await response.json();
         // console.log("data", data);
@@ -257,7 +245,7 @@ export function MarketingContracts() {
             "Accept": "application/json",
             "Authorization": `Bearer ${access_token}`
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(contractForm),
         });
         const data = await response.json();
         // console.log('data contracts: ', data);
@@ -282,6 +270,10 @@ export function MarketingContracts() {
     const budget = budgets.find((b) => b.id === contract.budget_id);
     if (budget) {
       setSelectedBudget(budget);
+      setCalculateMoney({
+        customer_paid: contract.total_cost *contract.customer_rate,
+        supplier_paid: contract.total_cost * contract.supplier_rate,
+      })
     }
     setContractDialog(true);
   };
@@ -324,6 +316,7 @@ export function MarketingContracts() {
       customer_rate: 0,
       supplier_rate: 0,
       note: '',
+      customer_actually_paid: 0,
     });
   };
 
@@ -750,11 +743,11 @@ export function MarketingContracts() {
                   <Input
                     id="customer_actually_paid"
                     type="text"
-                    value={formatNumber(calculateMoney.customer_actually_paid)}
+                    value={formatNumber(contractForm.customer_actually_paid??0)}
                     onChange={(e) => {
                       const number = handleMoneyInput(e.target.value);
-                      setCalculateMoney({
-                        ...calculateMoney,
+                      setContractForm({
+                        ...contractForm,
                         customer_actually_paid: number
                       });
                     }}
@@ -795,8 +788,8 @@ export function MarketingContracts() {
                 <div>
                   <Label>Tiền khách (tự động tính)</Label>
                   <Input
-                    type="number"
-                    value={calculateMoney.customer_paid}
+                    type="text"
+                    value={formatCurrency(calculateMoney.customer_paid)}
                     readOnly
                     className="bg-gray-50"
                   />
@@ -805,8 +798,8 @@ export function MarketingContracts() {
                 <div>
                   <Label>Tiền nguồn (tự động tính)</Label>
                   <Input
-                    type="number"
-                    value={calculateMoney.supplier_paid}
+                    type="text"
+                    value={formatCurrency(calculateMoney.supplier_paid)}
                     readOnly
                     className="bg-gray-50"
                   />

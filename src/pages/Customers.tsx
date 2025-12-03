@@ -381,7 +381,7 @@ export function Customers() {
                 <SelectItem value="all">Tất cả</SelectItem>
                 {productTypes.map((type) => (
                   <SelectItem key={type} value={type}>
-                    {type}
+                    {getProductTypeLabel(type)}
                   </SelectItem>
                 ))}
               </SelectContent>
