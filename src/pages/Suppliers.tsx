@@ -459,10 +459,10 @@ export function Suppliers() {
               </div>
               {/* ----------------------------------------------Budget------------------------------------------------ */}
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl">Danh sách Budget</h2>
+                <h2 className="text-xl">Danh sách ngân sách</h2>
                 <Button onClick={() => setBudgetDialog(true)}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Thêm budget
+                  Thêm ngân sách
                 </Button>
               </div>
 

@@ -4,13 +4,6 @@ import { Card } from '../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import {
-  mockContracts,
-  mockCustomers,
-  mockSuppliers,
-  mockBudgets,
-  mockAccountTypes,
-} from '../lib/mockData';
 import { formatCurrency } from '../lib/utils';
 import { BarChart3, TrendingUp, DollarSign, FileText } from 'lucide-react';
 import { fetchDashboard } from '../lib/fetchData';
@@ -23,15 +16,29 @@ export function Dashboard() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [dashboardData, setDashboardData] = useState({
-    period: '',
+    period: {
+      from: "",
+      to: "",
+    },
     total_contracts: 0,
     revenue: 0,
     profit: 0,
-    top_account_type: '',
+    received: 0, // ✔️ thêm mới
+    top_account_type: "",
     account_types: [] as { name: string; count: number }[],
     products: [] as { product: string; count: number }[],
-    customers: [] as { customer_id: string; customer_name: string; count: number }[],
+    customers: [] as {
+      customer_id: number;
+      customer_name: string;
+      count: number;
+    }[],
+    suppliers: [] as {
+      supplier_id: number;
+      supplier_name: string;
+      count: number;
+    }[],
   });
+
   const getValue = (value : 'date' | 'week' | 'month' | 'year')=>{
     if(value==="date")
       return selectedDate
@@ -132,6 +139,17 @@ export function Dashboard() {
               </div>
             </div>
           </div>
+          <div className="bg-white p-6 rounded-lg shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Tổng tiền nhận</p>
+                <p className="text-xl mt-2">{formatCurrency(dashboardData.received || 0)}</p>
+              </div>
+              <div className="p-3 bg-orange-100 rounded-full">
+                <DollarSign className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+          </div>
 
           <div className="bg-white p-6 rounded-lg shadow">
             <div className="flex items-center justify-between">
@@ -159,17 +177,7 @@ export function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Loại TK hay chạy</p>
-                <p className="text-xl mt-2">{dashboardData.top_account_type}</p>
-              </div>
-              <div className="p-3 bg-orange-100 rounded-full">
-                <DollarSign className="h-6 w-6 text-orange-600" />
-              </div>
-            </div>
-          </div>
+          
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -189,25 +197,6 @@ export function Dashboard() {
               )}
             </div>
           </div>
-
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl mb-4">Sản phẩm và số lần chạy</h2>
-            <div className="space-y-3">
-              {dashboardData.products.map((item) => (
-                <div key={item.product} className="flex justify-between items-center">
-                  <span className="text-sm">{item.product}</span>
-                  <span className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm">
-                    {item.count} lần
-                  </span>
-                </div>
-              ))}
-              {dashboardData.products.length === 0 && (
-                <p className="text-sm text-gray-500">Chưa có dữ liệu</p>
-              )}
-
-            </div>
-          </div>
-
           <div className="bg-white p-6 rounded-lg shadow">
             <h2 className="text-xl mb-4">Khách hàng và số lần chạy</h2>
             <div className="space-y-3">
@@ -225,47 +214,31 @@ export function Dashboard() {
 
             </div>
           </div>
-        </div>
 
-        {/* <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl mb-4">Hợp đồng gần đây</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm">Ngày</th>
-                  <th className="px-4 py-3 text-left text-sm">Khách hàng</th>
-                  <th className="px-4 py-3 text-left text-sm">Sản phẩm</th>
-                  <th className="px-4 py-3 text-left text-sm">Tiền chạy</th>
-                  <th className="px-4 py-3 text-left text-sm">Lợi nhuận</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredContracts.slice(0, 5).map((contract) => {
-                  const customer = mockCustomers.find((c) => c.id === contract.customer_id);
-                  const profit = contract.customer_paid - contract.total_cost;
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h2 className="text-xl mb-4">Nguồn và số lần chạy</h2>
+            <div className="space-y-3">
+              {dashboardData?.suppliers?.length > 0 ? (
+                dashboardData.suppliers.map((item) => (
+                  <div
+                    key={item.supplier_id}
+                    className="flex justify-between items-center"
+                  >
+                    <span className="text-sm">{item.supplier_name}</span>
+                    <span className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm">
+                      {item.count} lần
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">Chưa có dữ liệu</p>
+              )}
+            </div>
 
-                  return (
-                    <tr key={contract.id} className="border-t">
-                      <td className="px-4 py-3 text-sm">{contract.date}</td>
-                      <td className="px-4 py-3 text-sm">{customer?.name}</td>
-                      <td className="px-4 py-3 text-sm">{contract.product}</td>
-                      <td className="px-4 py-3 text-sm">{formatCurrency(contract.budget_money)}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={profit >= 0 ? 'text-green-600' : 'text-red-600'}>
-                          {formatCurrency(profit)}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {filteredContracts.length === 0 && (
-              <div className="text-center py-8 text-gray-500">Chưa có hợp đồng trong khoảng thời gian này</div>
-            )}
           </div>
-        </div> */}
+
+          
+        </div>
       </div>
     </Layout>
   );

@@ -68,6 +68,7 @@ export interface Contract {
   supplier_rate: number;
   note: string;
   budget_id: string;  
+  customer_actually_paid:number;
 }
 
 export interface Bill {

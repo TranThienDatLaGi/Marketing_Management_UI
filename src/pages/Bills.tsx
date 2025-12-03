@@ -292,6 +292,7 @@ export function Bills() {
       }
     }
     resetPaymentForm();
+    setViewPaymentsDialog(false);
   };
 
   const handlePaymentEdit = (payment: Payment) => {
@@ -322,6 +323,8 @@ export function Bills() {
       console.error("Đã có lỗi trong quá trình xóa thanh toán", error);
       toast.error("Đã có lỗi trong quá trình xóa thanh toán");
     }
+    setViewPaymentsDialog(false);
+    
   };
 
   const resetPaymentForm = () => {
@@ -394,46 +397,55 @@ export function Bills() {
         </div>
 
         {/* Calculation Warning */}
-        {calculationDifference !== 0 && (
-          <div
-            className={
-              calculationDifference > 0
-                ? "bg-red-50 border border-red-200 p-4 rounded-lg"     // thiếu → đỏ
-                : "bg-blue-50 border border-blue-200 p-4 rounded-lg"   // thừa → xanh dương
-            }
-          >
-            <p
+        <div>
+          {calculationDifference === 0 ? (
+            // 🎉 TRƯỜNG HỢP TÍNH ĐÚNG
+            <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
+              <p className="text-green-700">
+                ✅ Số tiền sau tính toán là{" "}
+                <strong>{formatCurrency(Math.abs(calculationDifference))}</strong>.
+                Bạn đã tính đúng rồi!
+              </p>
+              <p className="text-sm text-green-600 mt-1">
+                Công thức: Tiền nợ ({formatCurrency(totals.totalDebt)}) + Tiền hiện tại (
+                {formatCurrency(currentMoney)}) - Tiền cọc ({formatCurrency(totals.totalDeposit)})
+                = {formatCurrency(calculationDifference)}
+              </p>
+            </div>
+          ) : (
+            // ⚠️ TRƯỜNG HỢP TÍNH SAI
+            <div
               className={
                 calculationDifference > 0
-                  ? "text-red-700"
-                  : "text-blue-700"
+                  ? "bg-red-50 border border-red-200 p-4 rounded-lg"
+                  : "bg-blue-50 border border-blue-200 p-4 rounded-lg"
               }
             >
-              ⚠️ Số tiền sau tính toán là{" "}
-              <strong>
-                {formatCurrency(Math.abs(calculationDifference))}
-              </strong>
-              {calculationDifference > 0 ? " (thiếu)" : " (thừa)"}.
-              Bạn đã sai sót trong quá trình tính toán!
-            </p>
+              <p
+                className={
+                  calculationDifference > 0 ? "text-red-700" : "text-blue-700"
+                }
+              >
+                ⚠️ Số tiền sau tính toán là{" "}
+                <strong>{formatCurrency(Math.abs(calculationDifference))}</strong>
+                {calculationDifference > 0 ? " (thiếu)" : " (thừa)"}.
+                Bạn đã sai sót trong quá trình tính toán!
+              </p>
 
-            <p
-              className={
-                calculationDifference > 0
-                  ? "text-sm text-red-600 mt-1"
-                  : "text-sm text-blue-600 mt-1"
-              }
-            >
-              Công thức: Tiền nợ ({formatCurrency(totals.totalDebt)}) + Tiền hiện tại (
-              {formatCurrency(currentMoney)}) - Tiền cọc (
-              {formatCurrency(totals.totalDeposit)}) ={" "}
-              {formatCurrency(calculationDifference)}
-            </p>
-          </div>
-        )}
-
-
-
+              <p
+                className={
+                  calculationDifference > 0
+                    ? "text-sm text-red-600 mt-1"
+                    : "text-sm text-blue-600 mt-1"
+                }
+              >
+                Công thức: Tiền nợ ({formatCurrency(totals.totalDebt)}) + Tiền hiện tại (
+                {formatCurrency(currentMoney)}) - Tiền cọc ({formatCurrency(totals.totalDeposit)})
+                = {formatCurrency(calculationDifference)}
+              </p>
+            </div>
+          )}
+        </div>
         {/* Filters */}
         <div className="bg-white p-4 rounded-lg shadow">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -487,10 +499,10 @@ export function Bills() {
                   <th className="px-4 py-3 text-left text-sm min-w-[100px]">Ngày</th>
                   <th className="px-4 py-3 text-left text-sm min-w-[150px]">Khách hàng</th>
                   <th className="px-4 py-3 text-left text-sm min-w-[180px]">Sản phẩm</th>
-                  <th className="px-4 py-3 text-left text-sm min-w-[120px]">Tổng tiền</th>
-                  <th className="px-4 py-3 text-left text-sm min-w-[120px]">Đã trả</th>
+                  <th className="px-4 py-3 text-left text-sm min-w-[120px]">Tiền chạy</th>
+                  <th className="px-4 py-3 text-left text-sm min-w-[120px]">Tiền chuyển</th>
                   <th className="px-4 py-3 text-left text-sm min-w-[120px]">Còn nợ</th>
-                  <th className="px-4 py-3 text-left text-sm min-w-[120px]">Tiền cọc</th>
+                  <th className="px-4 py-3 text-left text-sm min-w-[120px]">Còn cọc</th>
                   <th className="px-4 py-3 text-left text-sm min-w-[100px]">Trạng thái</th>
                   <th className="px-4 py-3 text-left text-sm min-w-[150px]">Ghi chú</th>
                   <th className="px-4 py-3 text-left text-sm min-w-[100px]">Thao tác</th>
@@ -667,6 +679,7 @@ export function Bills() {
                     }}
                     className="mt-2"
                     placeholder="Nhập số tiền hiện tại"
+                    disabled
                   />
                 </div>
               </div>
