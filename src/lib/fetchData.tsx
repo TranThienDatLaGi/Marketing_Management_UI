@@ -1,6 +1,6 @@
 import Cookies from 'js-cookie';
-import { ACCOUNT_TYPE, BILL_FILTERED, BUDGET_BY_SUPPLIER, BUDGET_CONTRACT, CONTRACT_FILTERED, CUSTOMER, DASHBOARD, LIST_USER, OVERVIEW_CUSTOMER, OVERVIEW_SUPPLIER, PAYMENT_BY_BILL, SUPPLIER } from '../config/API';
-import { AccountType, Budget, Customer, Payment, Supplier, User } from '../types';
+import { ACCOUNT_TYPE, BILL_FILTERED, BUDGET_BY_SUPPLIER, BUDGET_CONTRACT, CONTRACT_FILTERED, CUSTOMER, DASHBOARD, LIST_USER, OVERVIEW_CUSTOMER, OVERVIEW_SUPPLIER, PAYMENT_BY_CUSTOMER, SUPPLIER } from '../config/API';
+import { AccountType, Customer, Payment, Supplier, User } from '../types';
 export const fetchUsers = async (): Promise<User[]> => {
     try {
         const accessToken = Cookies.get("accessToken");
@@ -254,8 +254,13 @@ export const fetchFilteredBills = async (
 
         const query = new URLSearchParams();
 
-        if (params?.customer_id) query.append("customer_id", params.customer_id.toString());
-        if (params?.status) query.append("status", params.status.toString());
+        if (params?.customer_id && params.customer_id !== "all") {
+            query.append("customer_id", params.customer_id.toString());
+        }
+
+        if (params?.status && params.status !== "all") {
+            query.append("status", params.status.toString());
+        }
         if (params?.from_date) query.append("from_date", params.from_date);
         if (params?.to_date) query.append("to_date", params.to_date);
         if (params?.page) query.append("page", params.page.toString());
@@ -286,11 +291,11 @@ export const fetchFilteredBills = async (
         return [];
     }
 };
-export const fetchPaymentByBill = async (bill_id:string): Promise<Payment[]> => {
+export const fetchPaymentByCustomer = async (customer_id:string): Promise<Payment[]> => {
     try {
         const accessToken = Cookies.get("accessToken");
         if (!accessToken) return [];
-        const response = await fetch(`${PAYMENT_BY_BILL}/${bill_id}`, {
+        const response = await fetch(`${PAYMENT_BY_CUSTOMER}/${customer_id}`, {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",

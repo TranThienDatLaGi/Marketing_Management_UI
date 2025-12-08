@@ -22,7 +22,7 @@ export const CONTRACT_FILTERED = `${API}/contracts/filtered`;
 export const BILL = `${API}/bils`;
 export const BILL_FILTERED = `${API}/bills/filter`;
 export const PAYMENT = `${API}/payments`
-export const PAYMENT_BY_BILL = `${API}/payments-by-bill`
+export const PAYMENT_BY_CUSTOMER = `${API}/payments-by-customer`
 
 export const OVERVIEW_CUSTOMER = `${API}/overview/customer`
 export const OVERVIEW_SUPPLIER = `${API}/overview/supplier`

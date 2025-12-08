@@ -34,8 +34,10 @@ export function OverviewCustomer() {
     const loadData = async () => {
       try {
         const customerData = await fetchCustomer();
-        setCustomers(customerData)
-        setSelectedCustomer(customerData[0].id)
+        if (customerData){
+          setCustomers(customerData)
+          setSelectedCustomer(customerData[0].id)
+        }
       } catch (error) {
         console.error("Fetch users failed:", error);
       }
