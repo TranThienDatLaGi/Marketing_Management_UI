@@ -72,8 +72,6 @@ export interface Contract {
 }
 
 export interface Bill {
-  id: string;
-  date: string;
   customer_id: string;
   customer_name: string;
   product: string;
@@ -82,12 +80,11 @@ export interface Bill {
   debt_amount: number;
   deposit_amount: number; // Tiền cọc
   status: 'deposit' | 'debt' | 'completed';
-  note: string;
 }
 
 export interface Payment {
   id: string;
-  bill_id: string;
+  customer_id: string;
   date: string;
   amount: number;
   method: string;

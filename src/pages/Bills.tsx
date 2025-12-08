@@ -11,7 +11,7 @@ import { formatCurrency, formatDate, exportToCSV, formatNumber, handleMoneyInput
 import { Download, Edit, Trash2, ChevronLeft, ChevronRight, Eye, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../lib/authContext';
-import { fetchCustomer, fetchFilteredBills, fetchPaymentByBill } from '../lib/fetchData';
+import { fetchCustomer, fetchFilteredBills, fetchPaymentByCustomer } from '../lib/fetchData';
 import Cookies from 'js-cookie';
 import { BILL, PAYMENT } from '../config/API';
 import { DeleteDialog } from '../components/ui/DeleteDialogProps';
@@ -21,7 +21,6 @@ export function Bills() {
   const [bills, setBills] = useState<Bill[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-
   const today = new Date().toISOString().split("T")[0];
   const access_token = Cookies.get('accessToken');
   const [currentPage, setCurrentPage] = useState(1);
@@ -40,38 +39,32 @@ export function Bills() {
   const [dateTo, setDateTo] = useState(today);
 
   // Dialog
-  const [billDialog, setBillDialog] = useState(false);
   const [paymentDialog, setPaymentDialog] = useState(false);
   const [viewPaymentsDialog, setViewPaymentsDialog] = useState(false);
-  const [editingBill, setEditingBill] = useState<Bill | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [selectedBillForPayments, setSelectedBillForPayments] = useState<Bill | null>(null);
 
-  // Form
-  const [billForm, setBillForm] = useState<Partial<Bill>>({
-    date: today,
-    customer_id: '',
-    customer_name: '',
-    product: '',
-    total_money: 0,
-    paid_amount: 0,
-    debt_amount: 0,
-    deposit_amount: 0,
-    status: 'debt',
-    note: '',
-  });
-
   const [paymentForm, setPaymentForm] = useState<Partial<Payment>>({
     date: today,
-    bill_id: '',
+    customer_id: '',
     amount: 0,
     note: '',
   });
   // Current money input for calculation
   const [currentMoney, setCurrentMoney] = useState(0);
+  const [currentPagePayment, setCurrentPagePayment] = useState(1);
+  const itemsPerPage = 5;
+  const totalPages = Math.ceil(payments.length / itemsPerPage);
+
+  const paginatedPayments = payments.slice(
+    (currentPagePayment - 1) * itemsPerPage,
+    currentPagePayment * itemsPerPage
+  );
 
   useEffect(() => {
     const loadData = async () => {
+      const customerData = await fetchCustomer();
+      setCustomers(customerData)
       const res = await fetchFilteredBills({
         customer_id: customerFilter,
         status: statusFilter,
@@ -80,119 +73,56 @@ export function Bills() {
         page: currentPage,
         per_page: 10
       });
-      const billsData = res.data;
-      // console.log("billsData", res);
-      setBills(billsData);
-      const customerData = await fetchCustomer();
-      setCustomers(customerData)
-      setPage({
-        from: res.pagination.from,
-        to: res.pagination.to,
-        total: res.pagination.total,
-        next_page_url: res.pagination.next_page_url || null,
-        prev_page_url: res.pagination.prev_page_url || null,
-        last_page: res.pagination.last_page,
-      });
+      console.log("billsData", res);
+      if(res){
+        const billsData = res.data;
+        
+        setBills(billsData);
+        setPage({
+          from: res.pagination.from,
+          to: res.pagination.to,
+          total: res.pagination.total,
+          next_page_url: res.pagination.next_page_url || null,
+          prev_page_url: res.pagination.prev_page_url || null,
+          last_page: res.pagination.last_page,
+        });
+      }
+      
     }
     loadData();
   }, [customerFilter, statusFilter, dateFrom, dateTo, currentPage,payments])
   // Calculate totals
   const totals = useMemo(() => {
+    const safeBills = Array.isArray(bills) ? bills : [];
+
     return {
-      totalMoney: bills.reduce((sum, b) => sum + +b.total_money, 0),
-      totalPaid: bills.reduce((sum, b) => sum + +b.paid_amount, 0),
-      totalDeposit: bills.reduce((sum, b) => sum + +b.deposit_amount, 0),
-      totalDebt: bills.reduce((sum, b) => sum + +b.debt_amount, 0),
+      totalMoney: safeBills.reduce(
+        (sum, b) => sum + Number(b?.total_money || 0),
+        0
+      ),
+      totalPaid: safeBills.reduce(
+        (sum, b) => sum + Number(b?.paid_amount || 0),
+        0
+      ),
+      totalDeposit: safeBills.reduce(
+        (sum, b) => sum + Number(b?.deposit_amount || 0),
+        0
+      ),
+      totalDebt: safeBills.reduce(
+        (sum, b) => sum + Number(b?.debt_amount || 0),
+        0
+      ),
     };
   }, [bills]);
 
-
-  // Calculate difference
-  const calculationDifference = totals.totalDebt + currentMoney - totals.totalDeposit;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!access_token) {
-      toast.info('Phiên đăng nhập hết hạn vui lòng đăng nhập lại');
-    }
-    if (editingBill) {
-      try {
-        const response = await fetch(`${BILL}/${editingBill.id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "Authorization": `Bearer ${access_token}`
-          },
-          body: JSON.stringify(billForm),
-        });
-        const data = await response.json();
-        // console.log("data", data);
-        if (response.ok) {
-          setBills(bills.map((b) => (b.id === editingBill.id ? { ...b, ...data.data } : b)));
-          toast.success('Cập nhật hóa đơn thành công!');
-        } else {
-          toast.error(`Cập nhật hóa đơn thất bại: ${data.message}`);
-        }
-      } catch (error) {
-        console.log("Đã có lỗi trong quá trình cập nhật hóa đơn", error);
-        toast.error('Đã có lỗi trong quá trình cập nhật hóa đơn');
-      }
-    }
-    resetForm();
-  };
-
-  const handleEdit = (bill: Bill) => {
-    setEditingBill(bill);
-    setBillForm(bill);
-    setBillDialog(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      const response = await fetch(`${BILL}/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          "Authorization": `Bearer ${access_token}`,
-        },
-      });
-      const data = await response.json();
-
-      if (response.ok) {
-        setBills(bills.filter((b) => b.id !== id));
-        toast.success("Xóa hóa đơn thành công!");
-      } else {
-        toast.error(`Xóa hóa đơn thất bại: ${data.message}`);
-      }
-    } catch (error) {
-      console.error("Đã có lỗi trong quá trình xóa hóa đơn", error);
-      toast.error("Đã có lỗi trong quá trình xóa hóa đơn");
-    }
-  };
-
-  const resetForm = () => {
-    setBillDialog(false);
-    setEditingBill(null);
-    setBillForm({
-      date: today,
-      customer_id: '',
-      customer_name: '',
-      product: '',
-      total_money: 0,
-      paid_amount: 0,
-      debt_amount: 0,
-      deposit_amount: 0,
-      status: 'debt',
-      note: '',
-    });
-  };
+  // ✅ Calculate difference (an toàn)
+  const calculationDifference =
+    totals.totalDebt + Number(currentMoney || 0) - totals.totalDeposit;
 
   const handleExport = () => {
     const exportData = bills.map((bill) => {
       return {
-        Ngày: formatDate(bill.date),
+        'Ngày': formatDate(today),
         'Khách hàng': bill.customer_name,
         'Sản phẩm': bill.product,
         'Tổng tiền': bill.total_money,
@@ -201,14 +131,24 @@ export function Bills() {
         'Tiền cọc': bill.deposit_amount,
         'Trạng thái':
           bill.status === 'completed' ? 'Hoàn thành' : bill.status === 'deposit' ? 'Đặt cọc' : 'Còn nợ',
-        'Ghi chú': bill.note,
       };
     });
 
-    exportToCSV(exportData, 'bills');
+    exportToCSV(exportData, `bills_${today}`);
     toast.success('Xuất dữ liệu thành công!');
   };
+  const handleExportPayment = () => {
+    const exportData = payments.map((payment) => {
+      return {
+        'Ngày': formatDate(payment.date),
+        'Số tiền': payment.amount,
+        'Ghi chú': payment.note,
+      };
+    });
 
+    exportToCSV(exportData, `paymentfor_${selectedBillForPayments?.customer_name}_${today}`);
+    toast.success('Xuất dữ liệu thành công!');
+  };
   const getStatusText = (status: string) => {
     switch (status) {
       case 'completed':
@@ -269,7 +209,6 @@ export function Bills() {
         const response = await fetch(PAYMENT, {
           method: "POST",
           credentials: "include",
-
           headers: {
             "Content-Type": "application/json",
             "Accept": "application/json",
@@ -332,15 +271,15 @@ export function Bills() {
     setEditingPayment(null);
     setPaymentForm({
       date: today,
-      bill_id: '',
+      customer_id: '',
       amount: 0,
       note: '',
     });
   };
   const handleViewPayments = async (bill: Bill) => {
     setSelectedBillForPayments(bill);
-    const paymentData = await fetchPaymentByBill(bill.id);
-    // console.log("paymentData", paymentData);
+    const paymentData = await fetchPaymentByCustomer(bill.customer_id);
+    console.log("paymentData", paymentData);
     setPayments(paymentData);
     setViewPaymentsDialog(true);
   };
@@ -496,7 +435,6 @@ export function Bills() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm min-w-[100px]">Ngày</th>
                   <th className="px-4 py-3 text-left text-sm min-w-[150px]">Khách hàng</th>
                   <th className="px-4 py-3 text-left text-sm min-w-[180px]">Sản phẩm</th>
                   <th className="px-4 py-3 text-left text-sm min-w-[120px]">Tiền chạy</th>
@@ -504,64 +442,38 @@ export function Bills() {
                   <th className="px-4 py-3 text-left text-sm min-w-[120px]">Còn nợ</th>
                   <th className="px-4 py-3 text-left text-sm min-w-[120px]">Còn cọc</th>
                   <th className="px-4 py-3 text-left text-sm min-w-[100px]">Trạng thái</th>
-                  <th className="px-4 py-3 text-left text-sm min-w-[150px]">Ghi chú</th>
                   <th className="px-4 py-3 text-left text-sm min-w-[100px]">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {bills.map((bill) => {
-                  return (
-                    <tr key={bill.id} className="border-t">
-                      <td className="px-4 py-3 text-sm">{formatDate(bill.date)}</td>
-                      <td className="px-4 py-3 text-sm">{bill.customer_name}</td>
-                      <td className="px-4 py-3 text-sm">{bill.product}</td>
-                      <td className="px-4 py-3 text-sm">{formatCurrency(bill.total_money)}</td>
-                      <td className="px-4 py-3 text-sm">{formatCurrency(bill.paid_amount)}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={bill.debt_amount > 0 ? 'text-red-600' : ''}>
-                          {formatCurrency(bill.debt_amount)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm">{formatCurrency(bill.deposit_amount)}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`px-2 py-1 rounded text-xs ${getStatusColor(bill.status)}`}>
-                          {getStatusText(bill.status)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm">{bill.note}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(bill)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          {user?.role === 'admin' && (
-                            <DeleteDialog
-                              trigger={
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                // onClick={() => setEditingSupplier(supplier)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-500" />
-                                </Button>
-                              }
-                              title="Xóa hóa đơn"
-                              description={`Bạn có chắc chắn muốn xóa hóa đơn này không? Hành động này không thể hoàn tác.`}
-                              onConfirm={() => handleDelete(bill.id)}
-                            />
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleViewPayments(bill)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {(Array.isArray(bills) ? bills : []).map((bill) => (
+                  <tr key={bill.customer_id} className="border-t">
+                    <td className="px-4 py-3 text-sm">{bill.customer_name}</td>
+                    <td className="px-4 py-3 text-sm">{bill.product}</td>
+                    <td className="px-4 py-3 text-sm">{formatCurrency(bill.total_money)}</td>
+                    <td className="px-4 py-3 text-sm">{formatCurrency(bill.paid_amount)}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={bill.debt_amount > 0 ? 'text-red-600' : ''}>
+                        {formatCurrency(bill.debt_amount)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm">{formatCurrency(bill.deposit_amount)}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 rounded text-xs ${getStatusColor(bill.status)}`}>
+                        {getStatusText(bill.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleViewPayments(bill)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -597,157 +509,6 @@ export function Bills() {
           </div>
         </div>
 
-        {/* Bill Dialog */}
-        <Dialog open={billDialog} onOpenChange={setBillDialog}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Sửa hóa đơn</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="date">Ngày *</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={billForm.date}
-                    onChange={(e) => setBillForm({ ...billForm, date: e.target.value })}
-                    required
-                    disabled
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="customer">Khách hàng *</Label>
-                  <Select
-                    value={billForm.customer_id}
-                    onValueChange={(value) => setBillForm({ ...billForm, customer_id: value })}
-                    disabled
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn khách hàng" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers.map((customer) => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                          {customer.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="product">Sản phẩm *</Label>
-                <Input
-                  id="product"
-                  value={billForm.product}
-                  onChange={(e) => setBillForm({ ...billForm, product: e.target.value })}
-                  required
-                  disabled
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="total_money">Tổng tiền *</Label>
-                  <Input
-                    id="total_money"
-                    type="number"
-                    value={billForm.total_money}
-                    onChange={(e) => setBillForm({ ...billForm, total_money: Number(e.target.value) })}
-                    required
-                    disabled
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="deposit">Tiền cọc</Label>
-                  {/* <Input
-                    id="deposit"
-                    type="number"
-                    value={billForm.deposit_amount}
-                    onChange={(e) => setBillForm({ ...billForm, deposit_amount: Number(e.target.value) })}
-                  /> */}
-                  <Input
-                    type="text"
-                    value={formatNumber(billForm.deposit_amount || 0)}
-                    onChange={(e) => {
-                      const number = handleMoneyInput(e.target.value);
-                      setBillForm({ ...billForm, deposit_amount: number })
-                    }}
-                    className="mt-2"
-                    placeholder="Nhập số tiền hiện tại"
-                    disabled
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="total_paid">Đã trả</Label>
-                  <Input
-                    id="total_paid"
-                    type="number"
-                    value={billForm.paid_amount}
-                    onChange={(e) => setBillForm({ ...billForm, paid_amount: Number(e.target.value) })}
-                    disabled
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="total_debt">Còn nợ</Label>
-                  <Input
-                    id="total_debt"
-                    type="number"
-                    value={billForm.debt_amount}
-                    onChange={(e) => setBillForm({ ...billForm, debt_amount: Number(e.target.value) })}
-                    disabled
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="status">Trạng thái</Label>
-                <Select
-                  value={billForm.status}
-                  onValueChange={(value: 'deposit' | 'debt' | 'completed') =>
-                    setBillForm({ ...billForm, status: value })
-                  }
-                  disabled
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="done">Hoàn thành</SelectItem>
-                    <SelectItem value="deposit">Đặt cọc</SelectItem>
-                    <SelectItem value="debt">Còn nợ</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="note">Ghi chú</Label>
-                <Textarea
-                  id="note"
-                  value={billForm.note}
-                  onChange={(e) => setBillForm({ ...billForm, note: e.target.value })}
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Hủy
-                </Button>
-                <Button type="submit">Cập nhật</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-
         {/* Payment Dialog */}
         <Dialog open={paymentDialog} onOpenChange={setPaymentDialog}>
           <DialogContent className="max-w-2xl">
@@ -755,39 +516,6 @@ export function Bills() {
               <DialogTitle>{editingPayment ? 'Sửa thanh toán' : 'Thêm thanh toán mới'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handlePaymentSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="date">Ngày *</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={paymentForm.date}
-                    onChange={(e) => setPaymentForm({ ...paymentForm, date: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="bill">Hóa đơn *</Label>
-                  <Select
-                    value={paymentForm.bill_id}
-                    onValueChange={(value) => setPaymentForm({ ...paymentForm, bill_id: value })}
-                    disabled
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn hóa đơn" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {bills.map((bill) => (
-                        <SelectItem key={bill.id} value={bill.id}>
-                          {bill.product} - {formatDate(bill.date)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
               <div>
                 <Label htmlFor="amount">Số tiền *</Label>
                 <Input
@@ -799,18 +527,15 @@ export function Bills() {
                     setPaymentForm({ ...paymentForm, amount: number });
                   }}
                 />
-              </div>
-
-              <div>
-                <Label htmlFor="note">Ghi chú</Label>
+                <Label htmlFor="note">Ghi chú *</Label>
                 <Textarea
                   id="note"
-                  value={paymentForm.note}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, note: e.target.value })}
-                  rows={3}
+                  value={paymentForm.note ?? ""}
+                  onChange={(e) =>
+                    setPaymentForm({ ...paymentForm, note: e.target.value })
+                  }
                 />
               </div>
-
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={resetPaymentForm}>
                   Hủy
@@ -823,106 +548,150 @@ export function Bills() {
 
         {/* View Payments Dialog */}
         <Dialog open={viewPaymentsDialog} onOpenChange={setViewPaymentsDialog}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-5xl h-[50vh] overflow-hidden">
             <DialogHeader>
               <DialogTitle>Danh sách thanh toán</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              {selectedBillForPayments && (
-                <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded">
-                  <div>
-                    <p className="text-sm text-gray-500">Ngày hóa đơn</p>
-                    <p>{formatDate(selectedBillForPayments.date)}</p>
+            <Button variant="outline" onClick={handleExportPayment}>
+              <Download className="mr-2 h-4 w-4" />
+              Xuất Excel
+            </Button>
+            <div className="space-y-4 mt-4">
+
+              <div className="space-y-4">
+                {selectedBillForPayments && (
+                  <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded">
+                    <div>
+                      <p className="text-sm text-gray-500">Khách hàng</p>
+                      <p>{selectedBillForPayments.customer_name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Sản phẩm</p>
+                      <p>{selectedBillForPayments.product}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Tổng tiền</p>
+                      <p className="text-gray-700">
+                        {formatCurrency(selectedBillForPayments.total_money)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Đã trả</p>
+                      <p className="text-green-600">
+                        {formatCurrency(selectedBillForPayments.paid_amount)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Còn nợ</p>
+                      <p className="text-red-600">
+                        {formatCurrency(selectedBillForPayments.debt_amount)}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Khách hàng</p>
-                    <p>
-                      {selectedBillForPayments.customer_name}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Sản phẩm</p>
-                    <p>{selectedBillForPayments.product}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Tổng tiền</p>
-                    <p className="text-gray-700">{formatCurrency(selectedBillForPayments.total_money)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Đã trả</p>
-                    <p className="text-green-600">{formatCurrency(selectedBillForPayments.paid_amount)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Còn nợ</p>
-                    <p className="text-red-600">{formatCurrency(selectedBillForPayments.debt_amount)}</p>
-                  </div>
+                )}
+
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg">Lịch sử thanh toán</h3>
+                  <Button
+                    onClick={() => {
+                      setPaymentForm({
+                        ...paymentForm,
+                        customer_id: selectedBillForPayments?.customer_id || "",
+                      });
+                      setPaymentDialog(true);
+                    }}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Thêm thanh toán
+                  </Button>
                 </div>
-              )}
 
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg">Lịch sử thanh toán</h3>
-                <Button
-                  onClick={() => {
-                    setPaymentForm({
-                      ...paymentForm,
-                      bill_id: selectedBillForPayments?.id || '',
-                    });
-                    setPaymentDialog(true);
-                  }}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Thêm thanh toán
-                </Button>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm">Ngày</th>
-                      <th className="px-4 py-3 text-left text-sm">Số tiền</th>
-                      <th className="px-4 py-3 text-left text-sm">Ghi chú</th>
-                      {user?.role === 'admin' && (
-                        <th className="px-4 py-3 text-left text-sm">Thao tác</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {payments.map((payment) => (
-                      <tr key={payment.id} className="border-t">
-                        <td className="px-4 py-3 text-sm">{formatDate(payment.date)}</td>
-                        <td className="px-4 py-3 text-sm">{formatCurrency(payment.amount)}</td>
-                        <td className="px-4 py-3 text-sm">{payment.note}</td>
-                        {user?.role === 'admin' && (
-                          <td className="px-4 py-3 text-sm">
-                            <div className="flex gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handlePaymentEdit(payment)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <DeleteDialog
-                                trigger={
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                  >
-                                    <Trash2 className="h-4 w-4 text-red-500" />
-                                  </Button>
-                                }
-                                title="Xóa thanh toán"
-                                description={`Bạn có chắc chắn muốn xóa thanh toán này không? Hành động này không thể hoàn tác.`}
-                                onConfirm={() => handlePaymentDelete(payment.id)}
-                              />
-                            </div>
-                          </td>
+                <div className="flex-1 min-h-0 overflow-y-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm">Ngày</th>
+                        <th className="px-4 py-3 text-left text-sm">Số tiền</th>
+                        <th className="px-4 py-3 text-left text-sm">Ghi chú</th>
+                        {user?.role === "admin" && (
+                          <th className="px-4 py-3 text-left text-sm">Thao tác</th>
                         )}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+
+                    <tbody>
+                      {paginatedPayments.map((payment) => (
+
+                        <tr key={payment.id} className="border-t">
+                          <td className="px-4 py-3 text-sm">
+                            {formatDate(payment.date)}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {formatCurrency(payment.amount)}
+                          </td>
+                          <td className="px-4 py-3 text-sm whitespace-normal break-words">
+                            {payment.note}
+                          </td>
+
+                          {user?.role === "admin" && (
+                            <td className="px-4 py-3 text-sm">
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handlePaymentEdit(payment)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+
+                                <DeleteDialog
+                                  trigger={
+                                    <Button variant="ghost" size="icon">
+                                      <Trash2 className="h-4 w-4 text-red-500" />
+                                    </Button>
+                                  }
+                                  title="Xóa thanh toán"
+                                  description="Bạn có chắc chắn muốn xóa thanh toán này không? Hành động này không thể hoàn tác."
+                                  onConfirm={() => handlePaymentDelete(payment.id)}
+                                />
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="flex justify-between items-center mt-4">
+                    <p>
+                      Hiển thị {(currentPagePayment - 1) * itemsPerPage + 1}–
+                      {Math.min(currentPagePayment * itemsPerPage, payments.length)}
+                      / {payments.length} thanh toán
+                    </p>
+                  </div>
+
+                  <div className="flex justify-between items-center mt-4">
+                    <Button
+                      variant="outline"
+                      disabled={currentPagePayment === 1}
+                      onClick={() => setCurrentPagePayment((p) => p - 1)}
+                    >
+                      Trang trước
+                    </Button>
+
+                    <p>
+                      Trang {currentPagePayment} / {totalPages}
+                    </p>
+
+                    <Button
+                      variant="outline"
+                      disabled={currentPagePayment === totalPages}
+                      onClick={() => setCurrentPagePayment((p) => p + 1)}
+                    >
+                      Trang sau
+                    </Button>
+                  </div>
+
+                </div>
               </div>
             </div>
           </DialogContent>
