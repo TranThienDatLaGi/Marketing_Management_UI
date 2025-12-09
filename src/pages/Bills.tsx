@@ -73,7 +73,7 @@ export function Bills() {
         page: currentPage,
         per_page: 10
       });
-      console.log("billsData", res);
+      // console.log("billsData", res);
       if(res){
         const billsData = res.data;
         
@@ -278,8 +278,8 @@ export function Bills() {
   };
   const handleViewPayments = async (bill: Bill) => {
     setSelectedBillForPayments(bill);
-    const paymentData = await fetchPaymentByCustomer(bill.customer_id);
-    console.log("paymentData", paymentData);
+    const paymentData = await fetchPaymentByCustomer(bill.customer_id,dateFrom,dateTo);
+    // console.log("paymentData", paymentData);
     setPayments(paymentData);
     setViewPaymentsDialog(true);
   };
