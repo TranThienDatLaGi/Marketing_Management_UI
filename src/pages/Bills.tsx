@@ -515,8 +515,10 @@ export function Bills() {
             <DialogHeader>
               <DialogTitle>{editingPayment ? 'Sửa thanh toán' : 'Thêm thanh toán mới'}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handlePaymentSubmit} className="space-y-4">
-              <div>
+
+            <form onSubmit={handlePaymentSubmit} className="space-y-6">
+              {/* Số tiền */}
+              <div className="space-y-2">
                 <Label htmlFor="amount">Số tiền *</Label>
                 <Input
                   id="amount"
@@ -527,6 +529,10 @@ export function Bills() {
                     setPaymentForm({ ...paymentForm, amount: number });
                   }}
                 />
+              </div>
+
+              {/* Ghi chú */}
+              <div className="space-y-2">
                 <Label htmlFor="note">Ghi chú *</Label>
                 <Textarea
                   id="note"
@@ -536,13 +542,28 @@ export function Bills() {
                   }
                 />
               </div>
-              <div className="flex justify-end gap-2">
+
+              {/* Ngày */}
+              <div className="space-y-2">
+                <Label htmlFor="date">Ngày *</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={paymentForm.date ?? ""}
+                  onChange={(e) =>
+                    setPaymentForm({ ...paymentForm, date: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={resetPaymentForm}>
                   Hủy
                 </Button>
                 <Button type="submit">{editingPayment ? 'Cập nhật' : 'Thêm'}</Button>
               </div>
             </form>
+
           </DialogContent>
         </Dialog>
 
