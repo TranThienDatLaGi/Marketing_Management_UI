@@ -37,7 +37,8 @@ export function MarketingContracts() {
   });
 
   // Filters
-  const [dateFrom, setDateFrom] = useState(today);
+  const [dateFrom, setDateFrom] = useState("2025-12-01");
+
   const [dateTo, setDateTo] = useState(today);
   const [supplierFilter, setSupplierFilter] = useState('all');
   const [customerFilter, setCustomerFilter] = useState('all');

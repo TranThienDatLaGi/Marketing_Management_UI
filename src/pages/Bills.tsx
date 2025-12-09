@@ -35,7 +35,7 @@ export function Bills() {
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [customerFilter, setCustomerFilter] = useState<string>('all');
-  const [dateFrom, setDateFrom] = useState(today);
+  const [dateFrom, setDateFrom] = useState("2025-12-01");
   const [dateTo, setDateTo] = useState(today);
 
   // Dialog
