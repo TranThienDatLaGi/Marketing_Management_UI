@@ -292,10 +292,11 @@ export const fetchFilteredBills = async (
     }
 };
 export const fetchPaymentByCustomer = async (
-    customer_id: string,
+    customer_id: string | number,
     fromDate: string,
     toDate: string
 ): Promise<Payment[]> => {
+
     try {
         const accessToken = Cookies.get("accessToken");
         if (!accessToken) return [];
