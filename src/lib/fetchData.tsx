@@ -291,33 +291,46 @@ export const fetchFilteredBills = async (
         return [];
     }
 };
-export const fetchPaymentByCustomer = async (customer_id:string): Promise<Payment[]> => {
+export const fetchPaymentByCustomer = async (
+    customer_id: string,
+    fromDate: string,
+    toDate: string
+): Promise<Payment[]> => {
     try {
         const accessToken = Cookies.get("accessToken");
         if (!accessToken) return [];
-        const response = await fetch(`${PAYMENT_BY_CUSTOMER}/${customer_id}`, {
-            method: "GET",
-            headers: {
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "Authorization": `Bearer ${accessToken}`,
-            },
-        });
+
+        const query = new URLSearchParams({
+            from_date: fromDate,
+            to_date: toDate,
+        }).toString();
+
+        const response = await fetch(
+            `${PAYMENT_BY_CUSTOMER}/${customer_id}?${query}`,
+            {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "Authorization": `Bearer ${accessToken}`,
+                },
+            }
+        );
 
         const data = await response.json();
-        // console.log("data", data.data);
-        
+
         if (response.ok) {
-            return data.data; // danh sách accout type từ API
+            return data.data;
         } else {
-            console.error("Fetch accout type failed:", data.message);
+            console.error("Fetch payment failed:", data.message);
             return [];
         }
     } catch (err) {
-        console.error("Error fetching accout type:", err);
+        console.error("Error fetching payment:", err);
         return [];
     }
 };
+
 export const fetchOverviewCustomer = async (
     target_id: string | number,
     period: string // dạng YYYY-MM
